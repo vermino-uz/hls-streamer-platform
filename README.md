@@ -1,6 +1,6 @@
-# Vermino - Video Collection Manager
+# HLS Streamer - Video Collection Manager
 
-Vermino is a modern web application that helps you manage, share, and showcase your video content with ease. Built with Laravel and featuring a sleek, user-friendly interface.
+HLS Streamer is a modern web application that helps you manage, share, and showcase your video content with ease. Built with Laravel and featuring a sleek, user-friendly interface.
 
 ## Features
 
