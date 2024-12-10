@@ -2,14 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Video;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-
+use Illuminate\Support\Facades\Log;
 class HLSController extends Controller
 {
     public function serve($uuid, $file): BinaryFileResponse
     {
+        Log::info('HLS request received', ['uuid' => $uuid, 'file' => $file]);
         $path = "videos/hls/{$uuid}/{$file}";
+        if($file === 'playlist.m3u8') {
+            $video = Video::where('hls_path', $path)->first();
+            $video->increment('views');
+            $video->save();
+        }
+
         if (!Storage::disk('public')->exists($path)) {
             abort(404);
         }

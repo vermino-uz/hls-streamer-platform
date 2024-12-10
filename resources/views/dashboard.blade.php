@@ -4,12 +4,7 @@
             <!-- Page Header -->
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-semibold text-white">My Videos</h1>
-                <a href="{{ route('videos.create') }}" class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-blue-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Upload Video
-                </a>
+
             </div>
 
             <!-- Videos Grid -->
@@ -29,13 +24,13 @@
                                 <div class="absolute inset-0 flex items-center justify-center bg-black/75">
                                     <div class="text-center">
                                         @if($video->status === 'processing')
-                                            <div class="mb-2 inline-block rounded-full bg-blue-600/10 p-3">
-                                                <svg class="h-6 w-6 animate-spin text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <div class="mb-2 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-600/20 to-purple-600/20 p-2 shadow-lg backdrop-blur-sm">
+                                                <svg class="h-4 w-4 animate-spin text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
                                             </div>
-                                            <span class="text-sm font-medium text-blue-500">Processing...</span>
+                                            <span class="text-sm font-medium tracking-wide text-blue-400 drop-shadow-md">Processing...</span>
                                         @elseif($video->status === 'failed')
                                             <div class="mb-2 inline-block rounded-full bg-red-600/10 p-3">
                                                 <svg class="h-6 w-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -48,14 +43,14 @@
                                 </div>
                             @else
                                 <!-- Play Button Overlay -->
-                                <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                                <a href="{{ route('videos.show', $video) }}" class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                                     <div class="rounded-full bg-white/10 p-3 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                </div>
+                                </a>
                             @endif
                         </div>
 
@@ -72,6 +67,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
+                                    
                                     <span>{{ number_format($video->views) }}</span>
                                 </div>
                                 <span>{{ $video->created_at->diffForHumans() }}</span>
@@ -80,14 +76,20 @@
 
                         <!-- Action Buttons -->
                         <div class="flex border-t border-gray-800 divide-x divide-gray-800">
-                            <a href="{{ route('videos.show', $video) }}" class="flex flex-1 items-center justify-center py-3 text-sm font-medium text-gray-400 transition-colors duration-300 hover:bg-gray-800 hover:text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                View
-                            </a>
-                            <form action="{{ route('videos.destroy', $video) }}" method="POST" class="flex-1">
+                            <div class="flex flex-1 space-x-2">
+                                @if($video->status === 'completed')
+                                    <button 
+                                        onclick="copyToClipboard(this, '{{ $video->hls_url }}')"
+                                        class="flex flex-1 items-center justify-center py-3 text-sm font-medium text-gray-400 transition-colors duration-300 hover:bg-blue-600/10 hover:text-blue-500 data-[copied=true]:bg-green-600/10 data-[copied=true]:text-green-500"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                        </svg>
+                                        Copy URL
+                                    </button>
+                                @endif
+                            </div>
+                            <form action="{{ route('videos.destroy', $video) }}" method="POST" class="flex-1" onsubmit="return confirm('Are you sure you want to delete this video? This action cannot be undone.');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="flex w-full items-center justify-center py-3 text-sm font-medium text-gray-400 transition-colors duration-300 hover:bg-red-600/10 hover:text-red-500">

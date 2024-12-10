@@ -24,13 +24,13 @@
                     // Show feedback
                     const originalText = button.textContent;
                     button.textContent = 'Copied!';
-                    button.classList.add('bg-green-500');
-                    button.classList.remove('bg-blue-500');
+                    // button.classList.add('bg-green-500');
+                    // button.classList.remove('bg-blue-500');
                     
                     setTimeout(() => {
                         button.textContent = originalText;
-                        button.classList.remove('bg-green-500');
-                        button.classList.add('bg-blue-500');
+                        // button.classList.remove('bg-green-500');
+                        // button.classList.add('bg-blue-500');
                     }, 2000);
                 }).catch(err => {
                     console.error('Failed to copy:', err);
@@ -45,8 +45,8 @@
                     // Show feedback
                     const originalText = button.textContent;
                     button.textContent = 'Copied!';
-                    button.classList.add('bg-green-500');
-                    button.classList.remove('bg-blue-500');
+                    // button.classList.add('bg-green-500');
+                    // button.classList.remove('bg-blue-500');
                     
                     setTimeout(() => {
                         button.textContent = originalText;

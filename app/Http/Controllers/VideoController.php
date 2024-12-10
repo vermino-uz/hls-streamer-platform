@@ -358,4 +358,6 @@ class VideoController extends Controller
             'hls_url' => $video->hls_url
         ]);
     }
+
+    
 }
