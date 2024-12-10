@@ -20,11 +20,14 @@ Route::middleware('auth')->group(function () {
     
     // Video routes
     Route::resource('videos', VideoController::class);
+    Route::post('/videos/upload-chunk', [VideoController::class, 'uploadChunk'])->name('videos.upload-chunk');
+    Route::get('/videos/{video}/conversion-progress', [VideoController::class, 'checkConversionProgress'])
+        ->name('videos.conversion-progress');
 });
 
 // HLS Streaming routes
-Route::get('/hls/{video}/{file}', [HLSController::class, 'serve'])
-    ->where('video', '[a-zA-Z0-9\-]+')
+Route::get('/hls/{uuid}/{file}', [HLSController::class, 'serve'])
+    ->where('uuid', '[a-f0-9\-]{36}')
     ->where('file', '.*')
     ->name('hls.serve');
 

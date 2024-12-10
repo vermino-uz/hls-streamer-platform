@@ -14,8 +14,8 @@
                             playsinline
                             poster="{{ Storage::url($video->thumbnail_path ?? '/videos/thumbnails/default.jpg') }}"
                         >
-                            @if($video->status === 'completed' && $video->hls_path)
-                                <source src="{{ Storage::url($video->hls_path) }}" type="application/x-mpegURL">
+                            @if($video->status === 'completed' && $video->hls_url)
+                                <source src="{{ $video->hls_url }}" type="application/x-mpegURL">
                             @endif
                             Your browser does not support the video tag.
                         </video>
@@ -104,19 +104,42 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const video = document.getElementById('videoPlayer');
-            if (Hls.isSupported() && video.querySelector('source')) {
+            const source = video.querySelector('source');
+            
+            if (Hls.isSupported() && source) {
                 const hls = new Hls({
                     maxLoadingDelay: 4,
                     maxBufferLength: 30,
-                    enableWorker: true
+                    enableWorker: true,
+                    debug: true
                 });
-                hls.loadSource(video.querySelector('source').src);
+                
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.error('HLS Error:', data);
+                });
+                
+                hls.loadSource(source.src);
                 hls.attachMedia(video);
+                
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play();
+                    console.log('HLS manifest parsed successfully');
+                });
+                
+                hls.on(Hls.Events.LEVEL_LOADED, function(event, data) {
+                    console.log('HLS level loaded:', data);
                 });
             }
         });
+
+        function copyToClipboard(button, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.innerHTML;
+                button.innerHTML = '<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Copied!';
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                }, 2000);
+            });
+        }
     </script>
     @endpush
 </x-app-layout>

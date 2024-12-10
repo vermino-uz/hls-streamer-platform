@@ -51,10 +51,22 @@
 
                             <!-- Upload Progress -->
                             <div id="upload-progress" class="hidden">
-                                <div class="w-full bg-gray-700 rounded-full h-2.5">
-                                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                <div class="mb-2">
+                                    <p class="text-sm font-medium text-white">Upload Progress</p>
+                                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                        <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <p id="progress-text" class="mt-2 text-sm text-white">0% uploaded</p>
                                 </div>
-                                <p id="progress-text" class="mt-2 text-sm text-white">0% uploaded</p>
+
+                                <!-- HLS Conversion Progress -->
+                                <div id="conversion-progress" class="hidden mt-4">
+                                    <p class="text-sm font-medium text-white">Video Processing</p>
+                                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                                        <div id="conversion-progress-bar" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                                    </div>
+                                    <p id="conversion-progress-text" class="mt-2 text-sm text-white">0% processed</p>
+                                </div>
                             </div>
 
                             <!-- Submit Button -->
@@ -66,63 +78,214 @@
                         </form>
 
                         <script>
-                            document.getElementById('upload-form').addEventListener('submit', function(e) {
+                            let conversionCheckInterval = null;
+
+                            function checkConversionProgress(videoId) {
+                                fetch(`/videos/${videoId}/conversion-progress`, {
+                                    headers: {
+                                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    credentials: 'same-origin'
+                                })
+                                    .then(response => {
+                                        if (response.redirected) {
+                                            window.location.href = response.url;
+                                            throw new Error('Session expired');
+                                        }
+                                        if (!response.ok) {
+                                            throw new Error(`HTTP error! status: ${response.status}`);
+                                        }
+                                        return response.json();
+                                    })
+                                    .then(data => {
+                                        const conversionProgress = document.getElementById('conversion-progress');
+                                        const conversionProgressBar = document.getElementById('conversion-progress-bar');
+                                        const conversionProgressText = document.getElementById('conversion-progress-text');
+                                        
+                                        conversionProgress.classList.remove('hidden');
+                                        conversionProgressBar.style.width = data.progress + '%';
+                                        conversionProgressText.textContent = data.progress + '% processed';
+
+                                        if (data.error) {
+                                            clearInterval(conversionCheckInterval);
+                                            conversionProgressText.textContent = 'Error processing video';
+                                            conversionProgressText.classList.add('text-red-500');
+                                        } else if (data.complete) {
+                                            clearInterval(conversionCheckInterval);
+                                            conversionProgressText.textContent = 'Processing complete!';
+                                            setTimeout(() => {
+                                                window.location.href = '{{ route('dashboard') }}';
+                                            }, 1000);
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error checking conversion progress:', error);
+                                        if (error.message !== 'Session expired') {
+                                            clearInterval(conversionCheckInterval);
+                                            const conversionProgressText = document.getElementById('conversion-progress-text');
+                                            conversionProgressText.textContent = 'Error checking progress';
+                                            conversionProgressText.classList.add('text-red-500');
+                                        }
+                                    });
+                            }
+
+                            document.getElementById('upload-form').addEventListener('submit', async function(e) {
                                 e.preventDefault();
                                 
                                 const form = e.target;
-                                const formData = new FormData(form);
+                                const file = document.getElementById('video').files[0];
                                 const submitButton = document.getElementById('submit-button');
                                 const progressDiv = document.getElementById('upload-progress');
                                 const progressBar = document.getElementById('progress-bar');
                                 const progressText = document.getElementById('progress-text');
+
+                                if (!file) {
+                                    alert('Please select a video file');
+                                    return;
+                                }
 
                                 // Show progress bar and disable submit button
                                 progressDiv.classList.remove('hidden');
                                 submitButton.disabled = true;
                                 submitButton.classList.add('opacity-50', 'cursor-not-allowed');
 
-                                // Create AJAX request
-                                const xhr = new XMLHttpRequest();
-                                xhr.open('POST', form.action, true);
+                                try {
+                                    // Generate UUID for this upload
+                                    const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                                        const r = Math.random() * 16 | 0;
+                                        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+                                        return v.toString(16);
+                                    });
 
-                                // Setup progress handler
-                                xhr.upload.onprogress = function(e) {
-                                    if (e.lengthComputable) {
-                                        const percent = Math.round((e.loaded / e.total) * 100);
-                                        progressBar.style.width = percent + '%';
-                                        progressText.textContent = percent + '%';
-                                        
-                                        if (percent === 100) {
-                                            setTimeout(() => {
-                                                window.location.replace('{{ route('dashboard') }}');
-                                            }, 500); // Small delay to ensure the request completes
+                                    // Calculate optimal chunk size based on file size
+                                    let chunkSize = 5 * 1024 * 1024; // Start with 5MB
+                                    if (file.size > 200 * 1024 * 1024) { // If file is larger than 200MB
+                                        chunkSize = 10 * 1024 * 1024; // Use 10MB chunks
+                                    }
+                                    const totalChunks = Math.ceil(file.size / chunkSize);
+                                    let uploadedChunks = 0;
+                                    let uploadedBytes = 0;
+                                    let retryCount = 0;
+                                    const maxRetries = 3;
+
+                                    // Upload chunks with retry mechanism
+                                    for (let chunkNumber = 0; chunkNumber < totalChunks; chunkNumber++) {
+                                        let chunkUploaded = false;
+                                        retryCount = 0;
+
+                                        while (!chunkUploaded && retryCount < maxRetries) {
+                                            try {
+                                                const start = chunkNumber * chunkSize;
+                                                const end = Math.min(start + chunkSize, file.size);
+                                                const chunk = file.slice(start, end);
+
+                                                const formData = new FormData();
+                                                formData.append('file', chunk);
+                                                formData.append('chunkNumber', chunkNumber);
+                                                formData.append('totalChunks', totalChunks);
+                                                formData.append('uuid', uuid);
+                                                formData.append('originalName', file.name);
+
+                                                const response = await fetch('{{ route('videos.upload-chunk') }}', {
+                                                    method: 'POST',
+                                                    body: formData,
+                                                    headers: {
+                                                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                                        'Accept': 'application/json',
+                                                        'X-Requested-With': 'XMLHttpRequest'
+                                                    },
+                                                    credentials: 'same-origin'
+                                                });
+
+                                                if (response.redirected) {
+                                                    window.location.href = response.url;
+                                                    throw new Error('Session expired');
+                                                }
+
+                                                if (!response.ok) {
+                                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                                }
+
+                                                const result = await response.json();
+
+                                                if (result.session_expired) {
+                                                    window.location.href = '{{ route('login') }}';
+                                                    throw new Error('Session expired');
+                                                }
+
+                                                if (!result.success) {
+                                                    throw new Error(result.message || 'Upload failed');
+                                                }
+
+                                                uploadedChunks++;
+                                                uploadedBytes += chunk.size;
+                                                chunkUploaded = true;
+
+                                                // Update progress
+                                                const percent = Math.round((uploadedBytes / file.size) * 100);
+                                                progressBar.style.width = percent + '%';
+                                                progressText.textContent = `${percent}% uploaded (${uploadedChunks}/${totalChunks} chunks)`;
+
+                                                // If all chunks are uploaded, submit the form with video details
+                                                if (result.complete) {
+                                                    // Handle final form submission
+                                                    const finalFormData = new FormData();
+                                                    finalFormData.append('path', result.path);
+                                                    finalFormData.append('title', document.getElementById('title').value);
+                                                    finalFormData.append('description', document.getElementById('description').value);
+                                                    
+                                                    try {
+                                                        const finalResponse = await fetch('{{ route('videos.store') }}', {
+                                                            method: 'POST',
+                                                            body: finalFormData,
+                                                            headers: {
+                                                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                                            }
+                                                        });
+
+                                                        const finalResult = await finalResponse.json();
+
+                                                        if (finalResult.success) {
+                                                            // Show success message
+                                                            uploadStatus.textContent = 'Upload complete! Processing video...';
+                                                            uploadStatus.classList.remove('text-red-500');
+                                                            uploadStatus.classList.add('text-green-500');
+                                                            
+                                                            // Redirect to dashboard after a short delay
+                                                            setTimeout(() => {
+                                                                window.location.href = '{{ route('dashboard') }}';
+                                                            }, 1500);
+                                                        } else {
+                                                            throw new Error(finalResult.message || 'Failed to process video');
+                                                        }
+                                                    } catch (error) {
+                                                        console.error('Final submission failed:', error);
+                                                        uploadStatus.textContent = 'Upload failed: ' + error.message;
+                                                        uploadStatus.classList.remove('text-green-500');
+                                                        uploadStatus.classList.add('text-red-500');
+                                                        resetUpload();
+                                                    }
+                                                }
+                                            } catch (error) {
+                                                console.error(`Chunk ${chunkNumber} upload failed (attempt ${retryCount + 1}):`, error);
+                                                retryCount++;
+                                                if (retryCount === maxRetries) {
+                                                    throw new Error(`Failed to upload chunk ${chunkNumber} after ${maxRetries} attempts`);
+                                                }
+                                                // Wait before retrying
+                                                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                                            }
                                         }
                                     }
-                                };
-
-                                // Handle response
-                                xhr.onload = function() {
-                                    if (xhr.status === 200) {
-                                        const response = JSON.parse(xhr.responseText);
-                                        if (!response.success) {
-                                            alert('Upload failed: ' + response.message);
-                                            resetForm();
-                                        }
-                                    } else {
-                                        const response = JSON.parse(xhr.responseText);
-                                        alert('Upload failed: ' + (response.message || 'Unknown error'));
+                                } catch (error) {
+                                    console.error('Upload failed:', error);
+                                    if (error.message !== 'Session expired') {
+                                        alert('Upload failed: ' + error.message);
                                         resetForm();
                                     }
-                                };
-
-                                // Handle network errors
-                                xhr.onerror = function() {
-                                    alert('Upload failed. Please check your connection and try again.');
-                                    resetForm();
-                                };
-
-                                // Send the form data
-                                xhr.send(formData);
+                                }
 
                                 function resetForm() {
                                     submitButton.disabled = false;
@@ -130,6 +293,14 @@
                                     progressDiv.classList.add('hidden');
                                     progressBar.style.width = '0%';
                                     progressText.textContent = '0% uploaded';
+                                    
+                                    // Reset conversion progress if visible
+                                    const conversionProgress = document.getElementById('conversion-progress');
+                                    if (!conversionProgress.classList.contains('hidden')) {
+                                        conversionProgress.classList.add('hidden');
+                                        document.getElementById('conversion-progress-bar').style.width = '0%';
+                                        document.getElementById('conversion-progress-text').textContent = '0% processed';
+                                    }
                                 }
                             });
 

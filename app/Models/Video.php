@@ -18,13 +18,11 @@ class Video extends Model
         'description',
         'file_path',
         'hls_path',
-        'size',
+        'thumbnail_path',
         'duration',
         'status',
         'user_id',
-        'original_name',
         'slug',
-        'category_id',
         'views'
     ];
 
@@ -66,7 +64,7 @@ class Video extends Model
 
     public function getStreamUrlAttribute()
     {
-        return url("stream/{$this->hls_path}/playlist.m3u8");
+        return url("stream/{$this->hls_path}/master.m3u8");
     }
 
     public function getThumbnailUrlAttribute()
@@ -76,19 +74,19 @@ class Video extends Model
 
     public function getHlsUrlAttribute()
     {
-        if ($this->status !== 'completed' || empty($this->hls_path)) {
+        if (!$this->hls_path) {
             return null;
         }
-        
-        // Extract video ID from hls_path
-        preg_match('/hls\/([^\/]+)\//', $this->hls_path, $matches);
-        $videoId = $matches[1] ?? null;
-        
-        if (!$videoId) {
-            return null;
-        }
-        
-        return url("/hls/{$videoId}/master.m3u8");
+
+        // Extract UUID from the HLS path
+        $uuid = basename(dirname($this->hls_path));
+        $filename = basename($this->hls_path);
+
+        // Generate the proper HLS URL using the route
+        return route('hls.serve', [
+            'uuid' => $uuid,
+            'file' => $filename
+        ]);
     }
 
     public function incrementViews()

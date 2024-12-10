@@ -7,9 +7,9 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HLSController extends Controller
 {
-    public function serve($video, $file): BinaryFileResponse
+    public function serve($uuid, $file): BinaryFileResponse
     {
-        $path = "videos/hls/{$video}/{$file}";
+        $path = "videos/hls/{$uuid}/{$file}";
         if (!Storage::disk('public')->exists($path)) {
             abort(404);
         }
@@ -23,7 +23,8 @@ class HLSController extends Controller
         
         return response()->file($filePath, [
             'Content-Type' => $mimetype,
-            'Access-Control-Allow-Origin' => '*'
+            'Access-Control-Allow-Origin' => '*',
+            'Cache-Control' => 'max-age=3600'
         ]);
     }
 }
