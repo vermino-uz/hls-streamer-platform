@@ -43,6 +43,10 @@ class ProcessVideoForHLS implements ShouldQueue
     public function handle()
     {
         try {
+            Log::info('Changing video status to processing', ['video' => $this->video]);
+            $this->video->status = 'processing';
+            $this->video->save();
+            Log::info('Video status updated to processing', ['video' => $this->video]);
             Log::info('Starting video processing', [
                 'video_id' => $this->video->id,
                 'path' => $this->video->file_path
@@ -57,7 +61,20 @@ class ProcessVideoForHLS implements ShouldQueue
             // Get video duration for progress calculation
             $duration = $this->getDuration($inputPath);
             $progressKey = "video_conversion_progress_{$this->video->id}";
-            Cache::put($progressKey, 0, 3600);
+            try {
+                if (!Cache::put($progressKey, 0, 3600)) {
+                    Log::error('Failed to set initial progress in cache', [
+                        'key' => $progressKey,
+                        'video_id' => $this->video->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error setting initial progress in cache', [
+                    'error' => $e->getMessage(),
+                    'key' => $progressKey,
+                    'video_id' => $this->video->id
+                ]);
+            }
 
             $uuid = basename(dirname($this->video->file_path));
             $outputDir = Storage::disk('public')->path("videos/hls/{$uuid}");
@@ -165,10 +182,25 @@ class ProcessVideoForHLS implements ShouldQueue
             // Update video record
             $this->video->hls_path = "videos/hls/{$uuid}/playlist.m3u8";
             $this->video->status = 'completed';
+            $this->video->duration = $duration;
             $this->video->save();
 
             // Set final progress
-            Cache::put($progressKey, 100, 3600);
+            try {
+                if (!Cache::put($progressKey, 100, 3600)) {
+                    Log::error('Failed to set final progress in cache', [
+                        'key' => $progressKey,
+                        'video_id' => $this->video->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error setting final progress in cache', [
+                    'error' => $e->getMessage(),
+                    'key' => $progressKey,
+                    'video_id' => $this->video->id
+                ]);
+            }
+
 
             // Generate thumbnail
             $this->generateThumbnail($inputPath, $uuid);
@@ -190,7 +222,20 @@ class ProcessVideoForHLS implements ShouldQueue
             $this->video->save();
 
             // Set error progress
-            Cache::put($progressKey, -1, 3600);
+            try {
+                if (!Cache::put($progressKey, -1, 3600)) {
+                    Log::error('Failed to set error progress in cache', [
+                        'key' => $progressKey,
+                        'video_id' => $this->video->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error setting error progress in cache', [
+                    'error' => $e->getMessage(),
+                    'key' => $progressKey,
+                    'video_id' => $this->video->id
+                ]);
+            }
 
             throw $e;
         }

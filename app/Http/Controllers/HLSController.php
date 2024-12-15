@@ -14,8 +14,10 @@ class HLSController extends Controller
         $path = "videos/hls/{$uuid}/{$file}";
         if($file === 'playlist.m3u8') {
             $video = Video::where('hls_path', $path)->first();
-            $video->increment('views');
-            $video->save();
+            if($video) {
+                $video->views = $video->views + 1;
+                $video->save();
+            }
         }
 
         if (!Storage::disk('public')->exists($path)) {

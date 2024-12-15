@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 
 class VideoService
 {
-    public function store($path, $title, $userId, $description = null)
+    public function store($path, $title, $userId, $description = null, $folderId = null)
     {
         try {
             if (!Storage::disk('public')->exists($path)) {
@@ -37,7 +37,8 @@ class VideoService
                 'description' => $description,
                 'user_id' => $userId,
                 'file_path' => $path,
-                'status' => 'processing',
+                'folder_id' => $folderId,
+                'status' => 'pending',
                 'slug' => Str::slug($title) . '-' . Str::random(6)
             ]);
 
@@ -45,8 +46,8 @@ class VideoService
 
             // Dispatch the processing job immediately using sync driver
             try {
-                ProcessVideoForHLS::dispatchSync($video);
-                Log::info('Processing job completed synchronously', [
+                ProcessVideoForHLS::dispatch($video);
+                Log::info('Processing job completed', [
                     'video_id' => $video->id,
                     'path' => $path
                 ]);
@@ -111,5 +112,86 @@ class VideoService
             ]);
             throw $e;
         }
+    }
+
+    public function processVideo(Video $video)
+    {
+        try {
+            $inputPath = Storage::disk('public')->path($video->file_path);
+            $uuid = basename(dirname($video->file_path));
+            $outputPath = "videos/hls/{$uuid}";
+            
+            // Create output directory if it doesn't exist
+            if (!Storage::disk('public')->exists($outputPath)) {
+                Storage::disk('public')->makeDirectory($outputPath);
+            }
+
+            // Get video duration for thumbnail generation
+            $duration = $this->getDuration($inputPath);
+            $video->duration = $duration;
+            $video->save();
+
+            // Generate thumbnail at 1/3 of the video
+            $thumbnailTime = $duration / 3;
+            $thumbnailPath = "{$outputPath}/thumbnail.jpg";
+            $this->generateThumbnail($inputPath, Storage::disk('public')->path($thumbnailPath), $thumbnailTime);
+            $video->thumbnail_path = $thumbnailPath;
+
+            // Convert video to HLS
+            $playlistPath = "{$outputPath}/playlist.m3u8";
+            $this->convertToHLS($inputPath, Storage::disk('public')->path($outputPath));
+            $video->hls_path = $playlistPath;
+
+            // Update video status
+            $video->status = 'completed';
+            $video->save();
+
+            Log::info('Video processed successfully', [
+                'video_id' => $video->id,
+                'duration' => $duration,
+                'thumbnail' => $thumbnailPath,
+                'hls_path' => $playlistPath
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Video processing failed', [
+                'video_id' => $video->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $video->status = 'failed';
+            $video->save();
+
+            throw $e;
+        }
+    }
+
+    protected function getDuration($videoPath)
+    {
+        try {
+            $command = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{$videoPath}\" 2>&1";
+            $duration = shell_exec($command);
+            return floatval($duration);
+        } catch (\Exception $e) {
+            Log::error('Failed to get video duration', [
+                'error' => $e->getMessage(),
+                'video_path' => $videoPath
+            ]);
+            return 0;
+        }
+    }
+
+    protected function generateThumbnail($inputPath, $outputPath, $time)
+    {
+        $command = "ffmpeg -i \"{$inputPath}\" -ss {$time} -vframes 1 -f image2 \"{$outputPath}\" 2>&1";
+        shell_exec($command);
+    }
+
+    protected function convertToHLS($inputPath, $outputDir)
+    {
+        $command = "ffmpeg -i \"{$inputPath}\" -profile:v baseline -level 3.0 -start_number 0 -hls_time 10 -hls_list_size 0 -f hls \"{$outputDir}/playlist.m3u8\" 2>&1";
+        shell_exec($command);
     }
 }

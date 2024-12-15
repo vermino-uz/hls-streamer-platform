@@ -20,15 +20,6 @@
             </div>
 
             <div class="flex items-center gap-4">
-                <!-- Upload Button -->
-                <a href="{{ route('videos.create') }}" 
-                   class="group inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-blue-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Upload New Video
-                </a>
-
                 <!-- Settings Dropdown -->
                 <div class="hidden sm:flex sm:items-center">
                     <x-dropdown align="right" width="48">

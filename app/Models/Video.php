@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use App\Models\Category;
 use App\Models\Tag;
 use App\Models\User;
+use App\Models\Folder;
 
 class Video extends Model
 {
@@ -23,7 +24,8 @@ class Video extends Model
         'status',
         'user_id',
         'slug',
-        'views'
+        'views',
+        'folder_id'
     ];
 
     protected $casts = [
@@ -60,6 +62,11 @@ class Video extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function folder()
+    {
+        return $this->belongsTo(Folder::class);
     }
 
     public function getStreamUrlAttribute()
