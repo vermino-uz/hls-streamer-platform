@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
+
 // Guest routes
 Route::middleware('guest')->group(function () {
     Route::get('/', function () {
@@ -20,6 +21,10 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/', [VideoController::class, 'index'])->name('home');
     Route::get('/dashboard', [VideoController::class, 'index'])->name('dashboard');
+    
+    Route::get('/phpinfo', function () {
+        return phpinfo();
+    });
 
     // Profile routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

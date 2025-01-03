@@ -27,7 +27,7 @@ class FolderController extends Controller
         $videos = Video::where('user_id', Auth::id())
             ->where('folder_id', $folderId)
             ->orderBy('created_at', 'desc')
-            ->paginate(9);
+            ->paginate(100);
             
         // Get current folder for breadcrumb
         $currentFolder = $folderId ? Folder::findOrFail($folderId) : null;
@@ -587,7 +587,6 @@ class FolderController extends Controller
             }
 
             $folders = $foldersQuery->orderBy('name')
-                ->limit(5)
                 ->get()
                 ->map(function($folder) {
                     return [
@@ -618,7 +617,6 @@ class FolderController extends Controller
             }
 
             $videos = $videosQuery->latest()
-                ->limit(5)
                 ->get()
                 ->map(function($video) {
                     return [

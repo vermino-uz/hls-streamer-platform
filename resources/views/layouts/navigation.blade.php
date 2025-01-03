@@ -6,7 +6,7 @@
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}" class="text-2xl font-bold text-white" style="font-family: 'Audiowide', cursive;">
-                        vermino
+                        Video Hosting
                     </a>
                 </div>
 

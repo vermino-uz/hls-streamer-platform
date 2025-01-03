@@ -12,7 +12,7 @@ class DashboardController extends Controller
     {
         $videos = Video::where('user_id', auth()->id())
             ->latest()
-            ->paginate(9)
+            ->paginate(100)
             ->through(function ($video) {
                 $video->hls_url = $video->hls_path ? url("/storage/" . $video->hls_path) : null;
                 return $video;
