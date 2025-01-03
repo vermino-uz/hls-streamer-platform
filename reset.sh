@@ -1,7 +1,6 @@
 #!/bin/bash
 
 
-# Remove all files in the public/thumbnails directory
 rm -rf storage/app/public/thumbnails/*
 
 # Remove all files in the public/hls directory
